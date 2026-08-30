@@ -166,4 +166,39 @@ if (document.readyState === 'loading') {
   boot();
 }
 })();</script>
+<script>(function(){
+function boot(){
+  var launch = document.querySelector('a.nlaunch');
+  if (launch && !document.querySelector('a.nlink-x')) {
+    var xLink = document.createElement('a');
+    xLink.className = 'nlink-x';
+    xLink.href = 'https://x.com/hood100XYZ';
+    xLink.target = '_blank';
+    xLink.rel = 'noopener noreferrer';
+    xLink.setAttribute('aria-label', 'HOOD100 on X');
+    xLink.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.9l-5.4-6.6L4.4 22H1.3l8.1-9.3L1 2h7l4.9 6.1L18.9 2zm-1.2 18h1.9L6.4 4H4.4l13.3 16z"/></svg>';
+    launch.parentNode.insertBefore(xLink, launch);
+  }
+
+  if (!document.querySelector('.verified-box')) {
+    var heroStage = document.querySelector('.stage');
+    var heroWrap = heroStage ? heroStage.closest('.wrap') : null;
+    if (heroWrap && heroWrap.parentNode) {
+      var box = document.createElement('div');
+      box.className = 'verified-box';
+      box.innerHTML =
+        '<span class="vb-label">Verified</span>' +
+        '<div class="vb-row"><span class="vb-k">Fee recipient</span><span class="vb-v">0x639D6Faa4DAf85d4ccc4291D1134C83867df5d82</span></div>' +
+        '<div class="vb-row"><span class="vb-k">Contract</span><span class="vb-v pending">added at launch</span></div>' +
+        '<a class="vb-x" href="https://x.com/hood100XYZ" target="_blank" rel="noopener noreferrer">Follow @hood100XYZ →</a>';
+      heroWrap.parentNode.insertBefore(box, heroWrap.nextSibling);
+    }
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+})();</script>
 </body><div id="aiFabShadowRoot" data-fab-type="react" style="opacity: 1;"></div></html>
