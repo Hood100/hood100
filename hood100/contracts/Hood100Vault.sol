@@ -2,31 +2,35 @@
 pragma solidity ^0.8.24;
 
 /// @title Hood100Vault
-/// @notice LetsCash fee recipient. 5% on the token: 0.3% platform (kept by
-///         LetsCash), 0.7% team, 4% index. If LetsCash forwards 4.7% ETH here,
-///         teamBps (default 1489) skims 0.7/4.7 and the rest is the index pot.
-///         Top-100 buys happen off this contract via the keeper + an allowlisted
-///         router. Holders claim in-kind with a merkle proof (push of 100
-///         tokens does not fit in one epoch). Original work — not a clone.
+/// @notice LetsCash fee recipient for $HOOD100.
+///         Chain tax is 5%: 0.3% stays at LetsCash, 0.7% team, 4% index.
+///         If LetsCash forwards 4.7% ETH here, teamBps=1489 skims 0.7/4.7.
+///         If it forwards only 4%, set teamBps=0.
+///
+///         Ranking the hundred, the liquidity floor, and the snapshot are
+///         OFF-CHAIN (keeper). This contract cannot see Dex liquidity.
+///         Trust the keeper, or do not use the vault.
+///
+///         Claims are merkle, in-kind, 20 tokens per tx. A push of 100
+///         ERC-20s to every holder will not settle on this chain.
 
 interface IERC20 {
     function transfer(address to, uint256 value) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
 }
 
 contract Hood100Vault {
     uint64 public constant EPOCH = 3 hours;
-    uint16 public constant MAX_CONSTITUENTS = 100;
     uint16 public constant MAX_CLAIM = 20;
 
     address public owner;
     address public keeper;
     address public team;
-    address public hood; // HOOD100 token, set after LetsCash mint
-    uint16 public teamBps; // of inbound ETH. 1489 ≈ 0.7/4.7. 0 if vault gets only 4%.
+    address public hood;
+    uint16 public teamBps;
     uint64 public epoch;
     uint64 public epochEndsAt;
     uint256 public indexWei;
+    uint256 public teamWei;
 
     mapping(address => bool) public router;
     mapping(uint64 => bytes32) public rootOf;
@@ -39,7 +43,8 @@ contract Hood100Vault {
     event HoodSet(address indexed token);
     event Router(address indexed who, bool ok);
     event Inbound(uint256 value, uint256 toTeam, uint256 toIndex);
-    event Bought(address indexed token, uint256 ethIn, uint256 dust);
+    event TeamPaid(uint256 value);
+    event Bought(address indexed to, uint256 ethIn, uint256 indexLeft);
     event EpochSettled(uint64 indexed e, bytes32 root, uint256 indexLeft);
     event Claimed(uint64 indexed e, address indexed who, address indexed token, uint256 amount);
 
@@ -49,7 +54,6 @@ contract Hood100Vault {
     error Bad();
     error Proof();
     error Taken();
-    error Zero();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert Auth();
@@ -79,13 +83,18 @@ contract Hood100Vault {
     function _split(uint256 value) internal {
         if (value == 0) return;
         uint256 cut = (value * teamBps) / 10_000;
-        uint256 rest = value - cut;
-        indexWei += rest;
-        if (cut > 0) {
-            (bool ok, ) = team.call{value: cut}("");
-            if (!ok) revert Bad();
-        }
-        emit Inbound(value, cut, rest);
+        teamWei += cut;
+        indexWei += value - cut;
+        emit Inbound(value, cut, value - cut);
+    }
+
+    function pullTeam() external {
+        uint256 v = teamWei;
+        if (v == 0) revert Bad();
+        teamWei = 0;
+        (bool ok, ) = team.call{value: v}("");
+        if (!ok) revert Bad();
+        emit TeamPaid(v);
     }
 
     function setOwner(address who) external onlyOwner {
@@ -122,8 +131,7 @@ contract Hood100Vault {
         emit Router(who, ok);
     }
 
-    /// @notice Keeper spends index ETH through an allowlisted router (one hop).
-    ///         Repeat up to 100 times per epoch. Tokens stay in this vault.
+    /// @notice One AMM hop. Tokens must land in THIS vault (swap `recipient`).
     function buy(address to, bytes calldata data, uint256 value) external onlyKeeper {
         if (!router[to]) revert Auth();
         if (value == 0 || value > indexWei) revert Bad();
@@ -149,8 +157,8 @@ contract Hood100Vault {
         }
     }
 
-    /// @notice In-kind claim. One leaf per (wallet, epoch, token, amount).
-    ///         Batch up to MAX_CLAIM tokens per call. Holder pays gas.
+    /// @notice Leaf = keccak256(bytes.concat(keccak256(abi.encode(who, e, token, amount))))
+    ///         Sorted-pair merkle (OpenZeppelin MerkleProof).
     function claim(
         uint64 e,
         address[] calldata tokens,
@@ -166,14 +174,14 @@ contract Hood100Vault {
             uint256 a = amounts[i];
             if (t == address(0)) revert Bad();
             if (claimed[e][who][t]) revert Taken();
-            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encodePacked(who, e, t, a))));
+            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(who, e, t, a))));
             if (!_verify(proofs[i], rootOf[e], leaf)) revert Proof();
             claimed[e][who][t] = true;
             if (a == 0) {
                 emit Claimed(e, who, t, 0);
                 continue;
             }
-            if (!IERC20(t).transfer(who, a)) revert Bad();
+            _safeTransfer(t, who, a);
             emit Claimed(e, who, t, a);
         }
     }
@@ -182,17 +190,29 @@ contract Hood100Vault {
         bytes32 h = leaf;
         for (uint256 i; i < proof.length; i++) {
             bytes32 p = proof[i];
-            if (h <= p) h = keccak256(abi.encodePacked(h, p));
-            else h = keccak256(abi.encodePacked(p, h));
+            h = h <= p ? keccak256(abi.encodePacked(h, p)) : keccak256(abi.encodePacked(p, h));
         }
         return h == root;
     }
 
+    function _safeTransfer(address token, address to, uint256 amount) internal {
+        (bool ok, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+        if (!ok || (data.length != 0 && !abi.decode(data, (bool)))) revert Bad();
+    }
+
+    /// @notice Owner escape for leftover dust / wrong token. Unclaimed bag can be moved.
+    ///         That is the trust line. Do not pretend otherwise.
     function rescue(address token, address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert Bad();
         if (token == address(0)) {
+            uint256 liq = address(this).balance - teamWei;
+            if (amount > liq) revert Bad();
+            if (amount > indexWei) indexWei = 0;
+            else indexWei -= amount;
             (bool ok, ) = to.call{value: amount}("");
             if (!ok) revert Bad();
-        } else if (!IERC20(token).transfer(to, amount)) revert Bad();
+        } else {
+            _safeTransfer(token, to, amount);
+        }
     }
 }

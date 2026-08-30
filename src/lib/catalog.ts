@@ -35,5 +35,5 @@ export const LOOP = [
   { id: "tax", k: "5%", v: "LetsCash cut on every trade. WETH/ETH in. Never HOOD100 sold to fund the bag." },
   { id: "split", k: "0.3 / 0.7 / 4", v: "Platform · team · index vault. Four percent buys the hundred." },
   { id: "rank", k: "100 seats", v: "Quote liquidity, one seat per ticker. Floor applied. Illiquid names skipped. We do not buy ourselves." },
-  { id: "claim", k: "merkle", v: "No 100-token push. You claim up to 20 names per tx. Holder pays gas. Nothing expires." },
+  { id: "claim", k: "merkle", v: "No 100-token push. You claim up to 20 names per tx. Holder pays gas. Ranking is the keeper." },
 ] as const;
