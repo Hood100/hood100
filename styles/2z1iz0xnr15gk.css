@@ -4,12 +4,4 @@
 .ascii-canvas{position:absolute;inset:0;display:block;cursor:grab;touch-action:none}.nlink-x{display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;border:1px solid var(--color-rule);color:var(--color-bone);margin-right:.6rem}
 .nlink-x:hover{border-color:var(--color-neon);color:var(--color-neon)}
 .nlink-x svg{width:1rem;height:1rem;fill:currentColor}
-.verified-box{border:1px solid var(--color-neon);background:var(--color-ink-2);padding:.9rem 1.1rem;margin:0 0 1.2rem;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.6rem;font-family:var(--font-mono);font-size:.72rem}
-.verified-box .vb-label{color:var(--color-neon);font-weight:900;letter-spacing:.14em;font-size:.62rem;text-transform:uppercase}
-.verified-box .vb-row{display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
-.verified-box .vb-k{color:var(--color-mute);white-space:nowrap}
-.verified-box .vb-v{color:var(--color-bone);word-break:break-all}
-.verified-box .vb-v.pending{color:var(--color-mute);font-style:italic}
-.verified-box .vb-x{margin-left:auto;color:var(--color-neon);text-decoration:none;border:1px solid var(--color-neon);padding:.35rem .8rem;white-space:nowrap;font-weight:700}
-.verified-box .vb-x:hover{background:var(--color-neon);color:var(--color-ink)}
-@media (max-width:640px){.verified-box{font-size:.66rem}.verified-box .vb-x{margin-left:0;width:100%;text-align:center}}
+

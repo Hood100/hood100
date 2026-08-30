@@ -180,20 +180,7 @@ function boot(){
     launch.parentNode.insertBefore(xLink, launch);
   }
 
-  if (!document.querySelector('.verified-box')) {
-    var heroStage = document.querySelector('.stage');
-    var heroWrap = heroStage ? heroStage.closest('.wrap') : null;
-    if (heroWrap && heroWrap.parentNode) {
-      var box = document.createElement('div');
-      box.className = 'verified-box';
-      box.innerHTML =
-        '<span class="vb-label">Verified</span>' +
-        '' +
-        '<div class="vb-row"><span class="vb-k">Contract</span><span class="vb-v">0x6d76bed86f8e9ae8e6aeb97d113c58c3d6178dcc</span></div>' +
-        '<a class="vb-x" href="https://x.com/hood100XYZ" target="_blank" rel="noopener noreferrer">Follow @hood100XYZ →</a>';
-      heroWrap.parentNode.insertBefore(box, heroWrap.nextSibling);
-    }
-  }
+  
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', boot);
